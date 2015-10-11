@@ -28,9 +28,6 @@ from CTReport import Report
 import CTPlugin
 
 def main(args, pcap_file):
-    if (args.update):
-        CTCore.update_captipper()
-
     CTCore.pcap_file = pcap_file[0]
     print("[A] Analyzing PCAP: " + CTCore.pcap_file)
 
@@ -67,13 +64,6 @@ def main(args, pcap_file):
         report.CreateReport(args.report[0])
     else:
         CTPlugin.init_plugins()
-        # try:
-        #     interpreter = console()
-        #     interpreter.cmdloop()
-        # except:
-        #     print (CTCore.newLine + 'Exiting CapTipper')
-        #     if (CTCore.web_server_turned_on):
-        #         CTCore.web_server.shutdown()
 
 if __name__ == "__main__":
     try:
@@ -85,13 +75,13 @@ if __name__ == "__main__":
         parser.add_argument('-d','--dump', nargs=1, metavar='FOLDER PATH', help='Dump all files and exit', required=False)
         parser.add_argument('-short','--short-url',action="store_true", help='Display shortened URI paths', required=False)
         parser.add_argument('-r','--report', nargs=1, metavar='FOLDER PATH', help='Create JSON & HTML report', required=False)
-        parser.add_argument('-g','--ungzip',action="store_false", help='Automatically ungzip responses', required=False)
-        parser.add_argument('-u','--update',action="store_true", help='Update CapTipper to newest version', required=False)
+        parser.add_argument('-g','--ungzip',action="store_false", help='Remove automatic response ungziping', required=False)
 
         args, pcap_file = parser.parse_known_args()
 
-        if len(pcap_file) != 1 and not args.update:
+        if len(pcap_file) != 1:
             parser.print_help()
+            sys.exit(0)
         else:
             main(args, pcap_file)
 
@@ -107,10 +97,10 @@ if __name__ == "__main__":
     try:
         from ThugAPI import *
         import PyV8
-        THUG =  "jsrun(x)            run conversation x through JS evaluation"
-        THUG += "                    retains window object and JS context"
-        THUG += "jw(x)               handle the window object, eg jw('location')"
-        THUG += "jseval(x)           evaluate x with PyV8 with new or existing context"
+        THUG =  "jsrun(x)             run conversation x through JS evaluation\n"
+        THUG += "                     retains window object and JS context\n"
+        THUG += "jw(x)                handle the window object, eg jw('location')\n"
+        THUG += "jseval(x )           evaluate x with PyV8 with new or existing context"
     except ImportError:
         THUG = ""
 
@@ -374,8 +364,8 @@ _help                Normal python help""" % (THUG)
     ruledata = ''
     venv = os.environ.get('VIRTUAL_ENV', '/')
     RULEFILE = os.path.join(venv, 'etc/local/captipper/rules')
-    RULECMD = os.path.join(venv, 
-                           'etc/local/captipper/snort_pcap_test.sh %s "%s"')
+    RULECMD = 'snort_pcap_test.sh %s "%s"'
+                           
     JSCONFPATH = os.path.join(venv, "etc/local/thug/")
 
     _hits = dict()

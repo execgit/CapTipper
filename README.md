@@ -11,7 +11,8 @@ CapTipper is a python tool to analyze, explore and revive HTTP malicious traffic
 This is a fork of CapTipper that uses the Python interactive console instead of CTConsole.
 Some new features are included. Some are overlapping with the features of the current CapTipper version as the code of this fork is based on an earlier version.
 
-```>>> help
+
+>>> help
 This is a normal Python shell with some special commands for your convenience.
 
 Available commands:
@@ -50,13 +51,15 @@ ids()                searchers IDS hits from pcap contents
 hits()               shows hosts with IDS hits
 i(z)                 shows IDS hit z where z is either conversation ID or ip:port (needs ids() invocation)
 
-jseval(x)            run conversation x through JS evaluation
+jsrun(x)             run conversation x through JS evaluation
+                     retains window object and JS context
+jw(x)                handle the window object, eg jw('location')
+jseval(x )           evaluate x with PyV8 with new or existing context
 
 _help                Normal python help
-```
 
-The jseval command requires installing Thugdom, a fork of Thug (https://github.com/execgit/thugdom).
-The IDS command set requires a version of Snort (https://www.snort.org/) as well as a ruleset to match packets against.
+The jsrun, jseval and jw commands require installing PyV8 and Thugdom, a fork of Thug (https://github.com/execgit/thugdom).
+The IDS command set requires installing a version of Snort (https://www.snort.org/) as well as a ruleset to match packets against.
 
 ***
 ###Original Info
