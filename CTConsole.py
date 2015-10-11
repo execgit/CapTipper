@@ -124,7 +124,7 @@ def check_path(path,type="file"):
     else:
         return True
 
-class console(cmd.Cmd, object):
+class console(object):
     """CapTipper console interpreter."""
 
     prompt = colors.SKY + 'CT> ' + colors.END
@@ -132,6 +132,7 @@ class console(cmd.Cmd, object):
             "Type 'open <conversation id>' to open address in browser" + newLine + \
             "Type 'hosts' to view traffic flow" + newLine + \
             "Type 'help' for more options" + newLine
+    retval = ""
 
     def __init__(self):
         super(console, self).__init__()
@@ -151,6 +152,11 @@ class console(cmd.Cmd, object):
 
             return line
 
+    def postcmd(self, stop, line):
+        print self.retval
+        self.retval = ''
+        return False
+
     def postloop(self):
         if (CTCore.web_server_turned_on):
             CTCore.web_server.shutdown()
@@ -159,6 +165,7 @@ class console(cmd.Cmd, object):
 
     def do_body(self, line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_body()
@@ -166,68 +173,37 @@ class console(cmd.Cmd, object):
                 id, size = get_id_size(line)
                 response, size = CTCore.get_response_and_size(id, size)
                 name = CTCore.get_name(id)
-                print "Displaying body of object {} ({}) [{} bytes]:".format(id, name, size)
+                self.reval = "Displaying body of object {} ({}) [{} bytes]:".format(id, name, size)
                 CTCore.show_errors()
-                print newLine + response
+                self.retval += newLine + response
         except Exception,e:
             print str(e)
 
 
     def help_body(self):
-        print newLine + "Displays the text representation of the body"
-        print newLine + "Usage: body <conv_id> [size=" + str(DEFAULT_BODY_SIZE) + "]"
-        print           "       use 'all' as size to retrieve entire body"
+        self.retval = newLine + "Displays the text representation of the body"
+        self.retval += newLine + "Usage: body <conv_id> [size=" + str(DEFAULT_BODY_SIZE) + "]"
+        self.retval += "       use 'all' as size to retrieve entire body"
 
-    def do_open(self, line):
-        try:
-            l = line.split(" ")
-            if l[0] == "":
-                self.help_open()
-            else:
-                bOpen = False
-                if not CTCore.web_server_turned_on:
-                    print newLine + " Web server is turned off, open anyway? (Y/n):",
-                    ans = raw_input()
-                    if ans.lower() == "y" or ans == "":
-                        bOpen = True
-                else:
-                    bOpen = True
-
-                if bOpen:
-                    id = int(l[0])
-                    request = CTCore.conversations[id].uri
-                    host = CTCore.conversations[id].host
-                    server_addr = CTCore.HOST
-                    if server_addr == "0.0.0.0":
-                        server_addr = "127.0.0.1"
-
-                    open_url = 'http://' + server_addr + ":" + str(CTCore.PORT) + "/" + host + request
-                    print("  Opening {} in default browser".format(open_url))
-                    import webbrowser
-                    webbrowser.open(open_url)
-        except Exception, e:
-            print str(e)
-
-    def help_open(self):
-        print newLine + "Open the URL of the object in Default Browser"
-        print newLine + "Usage: open <conv_id>"
 
     def do_log(self, line):
         try:
+            line = str(line)
             if (len(CTCore.request_logs) > 0):
                 for l in CTCore.request_logs:
-                    print l
+                    self.retval += l
             else:
-                print " No previous web server entries"
+                self.retval += " No previous web server entries"
         except Exception,e:
             print str(e)
 
     def help_log(self):
-        print newLine + "Displays the web server's Log"
-        print newLine + "Usage: log"
+        self.retval = newLine + "Displays the web server's Log"
+        self.retval += newLine + "Usage: log"
 
     def do_dump(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if len(l) < 2:
                 self.help_dump()
@@ -236,50 +212,60 @@ class console(cmd.Cmd, object):
                     dump_exe = True
                     if len(l) > 2 and l[2].lower() == "-e":
                         dump_exe = False
-                    CTCore.dump_all_files(l[1], dump_exe)
+                    self.retval += CTCore.dump_all_files(l[1], dump_exe)
                 else:
                     id = l[0]
                     path = l[1]
                     if check_path(path, type="file"):
-                        CTCore.dump_file(id,path)
+                        self.retval += CTCore.dump_file(id, path)
 
         except Exception,e:
-            print str(e)
+            return str(e)
 
     def help_dump(self):
-        print newLine + "Dumps the object file to a given folder"
-        print newLine + "Usage: dump <conv_id> <path> [-e]" + newLine
-        print "Options:"
-        print "   -e       - ignores executables" + newLine
-        print "Example: dump 4 c:" + chr(92) + "files" + chr(92) + "index.html"
-        print "         Dumps object 4 to given path" + newLine
-        print "Example: dump all c:" + chr(92) + "files"
-        print "         Dumps all files to folder by their found name" + newLine
-        print "Example: dump all c:" + chr(92) + "files -e"
-        print "         Dumps all files to folder by their found name, without EXE files" + newLine
+        self.retval = newLine + "Dumps the object file to a given folder"
+        self.retval += newLine + "Usage: dump <conv_id> <path> [-e]" + newLine
+        self.retval += "Options:"
+        self.retval += "   -e       - ignores executables" + newLine
+        self.retval += "Example: dump 4 c:" + chr(92) + "files" + chr(92) + "index.html"
+        self.retval += "         Dumps object 4 to given path" + newLine
+        self.retval += "Example: dump all c:" + chr(92) + "files"
+        self.retval += "         Dumps all files to folder by their found name" + newLine
+        self.retval += "Example: dump all c:" + chr(92) + "files -e"
+        self.retval += "         Dumps all files to folder by their found name, without EXE files" + newLine
 
+    def _xor(self, data, key):
+        lkey = len(key)
+        out = ''
+        for i, x in enumerate(data):
+            out += chr(ord(x) ^ ord(key[i % lkey]))
+        return out
 
-    def do_hexdump(self,line):
+    def do_hexdump(self, line, xor=None, custsize=None):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_hexdump()
             else:
                 id, size = get_id_size(line)
+                if custsize:
+                    size = custsize
                 response, size = CTCore.get_response_and_size(id, size)
                 name = CTCore.get_name(id)
-                print "Displaying hexdump of object {} ({}) body [{} bytes]:".format(id, name, size)
-                print newLine + hexdump(response) + newLine
+                self.retval = "Displaying hexdump of object {} ({}) body [{} bytes]:".format(id, name, size)
+                self.retval += newLine + hexdump(response) + newLine
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_hexdump(self):
-        print "Display hexdump of given object"
-        print newLine + "Usage: hexdump <conv_id> [size=" + str(DEFAULT_BODY_SIZE) + "]"
-        print "       use 'all' as size to retrieve entire body"
+        self.retval = "Display hexdump of given object"
+        self.retval += newLine + "Usage: hexdump <conv_id> [size=" + str(DEFAULT_BODY_SIZE) + "]"
+        self.retval += "       use 'all' as size to retrieve entire body"
 
     def do_head(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_head()
@@ -288,41 +274,42 @@ class console(cmd.Cmd, object):
                 header = get_head(id)
                 name = CTCore.get_name(id)
 
-                print "Displaying header of object {} ({}):".format(str(id), name)
-                print newLine + header
+                self.retval = "Displaying header of object {} ({}):".format(str(id), name)
+                self.retval += newLine + header
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_head(self):
-        print newLine + "Display header of response"
-        print newLine + "Usage: head <conv_id>"
+        self.retval = newLine + "Display header of response"
+        self.retval += newLine + "Usage: head <conv_id>"
 
     def do_convs(self,line):
-        print "Conversations Found:" + newLine
-        CTCore.show_conversations()
+        line = str(line)
+        self.retval = "Conversations Found:" + newLine
+        self.retval += CTCore.show_conversations()
 
     def help_convs(self):
-        print newLine + "Display the conversations found"
-        print newLine + "Usage: convs"
+        self.retval = newLine + "Display the conversations found"
+        self.retval += newLine + "Usage: convs"
 
     def do_objects(self,line):
-        CTCore.show_objects()
-        print ""
+        self.retval = CTCore.show_objects()
 
     def help_objects(self):
-        print newLine + "Display all objects, found or created"
-        print newLine + "Usage: objects"
+        self.retval = newLine + "Display all objects, found or created"
+        self.retval += newLine + "Usage: objects"
 
     def do_hosts(self,line):
-        print "Found Hosts:" + newLine
-        CTCore.show_hosts()
+        self.retval = "Found Hosts:" + newLine
+        self.retval += CTCore.show_hosts()
 
     def help_hosts(self):
-        print newLine + "Display the hosts found in pcap and their URI's"
-        print newLine + "Usage: hosts"
+        self.retval = newLine + "Display the hosts found in pcap and their URI's"
+        self.retval += newLine + "Usage: hosts"
 
     def do_info(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_info()
@@ -331,42 +318,43 @@ class console(cmd.Cmd, object):
                 if in_range(id, list_type='conversations'):
                     conv_obj = CTCore.conversations[int(id)]
 
-                    print "Info of conversation {}: ".format(str(id))
-                    print newLine + \
+                    self.retval = "Info of conversation {}: ".format(str(id))
+                    self.retval += newLine + \
                           " SERVER IP   : " + conv_obj.server_ip_port
-                    print " TIME        : " + time.strftime('%a, %x %X', time.gmtime(int(conv_obj.req_microsec)))
-                    print " HOST        : " + conv_obj.host
-                    print " URI         : " + conv_obj.uri
-                    print " REFERER     : " + conv_obj.referer
-                    print " METHOD      : " + conv_obj.method
-                    print " RESULT NUM  : " + conv_obj.res_num
-                    print " RESULT TYPE : " + conv_obj.res_type
-                    print " FILE NAME   : " + conv_obj.filename.rstrip()
+                    self.retval += " TIME        : " + time.strftime('%a, %x %X', time.gmtime(int(conv_obj.req_microsec)))
+                    self.retval += " HOST        : " + conv_obj.host
+                    self.retval += " URI         : " + conv_obj.uri
+                    self.retval += " REFERER     : " + conv_obj.referer
+                    self.retval += " METHOD      : " + conv_obj.method
+                    self.retval += " RESULT NUM  : " + conv_obj.res_num
+                    self.retval += " RESULT TYPE : " + conv_obj.res_type
+                    self.retval += " FILE NAME   : " + conv_obj.filename.rstrip()
                     if conv_obj.magic_name != "":
-                        print " MAGIC       : " + conv_obj.magic_name + " ({})".format(conv_obj.magic_ext)
-                    print " LENGTH      : " + str(conv_obj.res_len) + " B" + newLine
+                        self.retval += " MAGIC       : " + conv_obj.magic_name + " ({})".format(conv_obj.magic_ext)
+                    self.retval += " LENGTH      : " + str(conv_obj.res_len) + " B" + newLine
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_info(self):
-        print newLine + "Display info on object"
-        print newLine + "Usage: info <conv_id>"
+        self.retval = newLine + "Display info on object"
+        self.retval += newLine + "Usage: info <conv_id>"
 
     def do_client(self,line):
         try:
-            print newLine + "Client Info: " + newLine
+            line = str(line)
+            self.retval = newLine + "Client Info: " + newLine
             for key, value in CTCore.client.get_information().iteritems():
-                print " {0:17}:  {1}".format(key, value)
-            print ""
+                self.retval += " {0:17}:  {1}".format(key, value)
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_client(self):
-        print newLine + "Displays information about the client"
-        print newLine + "Usage: client"
+        self.retval = newLine + "Displays information about the client"
+        self.retval += newLine + "Usage: client"
 
     def do_ungzip(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_ungzip()
@@ -378,16 +366,17 @@ class console(cmd.Cmd, object):
                     if in_range(id):
                         obj_num, name = CTCore.ungzip_and_add(id)
                         if obj_num != -1:
-                            print " GZIP Decompression of object {} ({}) successful!".format(str(id), name)
-                            print " New object created: {}".format(obj_num) + newLine
+                            CTCore.conversations[int(id)].decoded = int(obj_num)
+                            self.retval = " GZIP Decompression of object {} ({}) successful!".format(str(id), name)
+                            self.retval += " New object created: {}".format(obj_num) + newLine
                         else:
                             CTCore.show_errors()
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_ungzip(self):
-        print newLine + "Decompress gzip compression"
-        print newLine + "Usage: ungzip <conv_id>"
+        self.retval = newLine + "Decompress gzip compression"
+        self.retval += newLine + "Usage: ungzip <conv_id>"
 
     def do_exit(self, line):
         if (CTCore.web_server_turned_on):
@@ -396,6 +385,7 @@ class console(cmd.Cmd, object):
 
     def do_ziplist(self, line):
         try:
+            line = str(line)
             import zipfile
             l = line.split(" ")
             if (l[0] == ""):
@@ -408,21 +398,24 @@ class console(cmd.Cmd, object):
                     fp = StringIO.StringIO(response)
                     fp.write(response)
                     zfp = zipfile.ZipFile(fp, "r")
-                    print " " + str(len(zfp.namelist())) + " Files found in zip object {} ({}):".format(str(id),name) + newLine
+                    self.retval = " " + str(len(zfp.namelist())) + \
+                                  " Files found in zip object {} ({}):".format(
+                                      str(id),name) + newLine
 
                     for cnt, fl in enumerate(zfp.namelist()):
-                        print " [Z] " + str(cnt + 1) + " : " + fl
+                        self.retval += " [Z] " + str(cnt + 1) + " : " + fl
                         cnt += 1
-                    print ""
+                    self.retval += newLine
         except Exception,e:
-            print "Error unzipping object: " + str(e)
+            self.retval = "Error unzipping object: " + str(e)
 
     def help_ziplist(self):
-        print newLine + "Lists files inside zip object"
-        print newLine + "Usage: ziplist <conv_id>"
+        self.retval = newLine + "Lists files inside zip object"
+        self.retval += newLine + "Usage: ziplist <conv_id>"
 
-    def do_iframes(self,line):
+    def do_iframes(self,line,tag="iframe"):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_resp()
@@ -431,49 +424,21 @@ class console(cmd.Cmd, object):
                 response, size = CTCore.get_response_and_size(id, "all")
                 name = CTCore.get_name(id)
 
-                parser = CTCore.srcHTMLParser("iframe")
-                print "Searching for iframes in object {} ({})...".format(str(id),name)
+                parser = CTCore.srcHTMLParser(tag)
+                self.retval = "Searching for iframes in object {} ({})...".format(str(id),name)
                 parser.feed(response)
-                parser.print_objects()
-                print ""
+                self.retval += "{} found{}".format(len(parser.tags), newLine)
+                return parser
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_iframes(self):
-        print newLine + "Finds iframes in html/js files"
-        print newLine + "Usage: iframes <obj_id>"
-
-    def do_server(self,line):
-        try:
-            l = line.split(" ")
-            if (l[0] == ""):
-                self.help_server()
-            else:
-                s_cmd = l[0]
-                if s_cmd.lower() == "on":
-                    if CTCore.web_server_turned_on:
-                        print "     Web Server already on: http://" + CTCore.HOST + ":" + CTCore.PORT
-                    else:
-                        CTCore.web_server = server()
-                        CTCore.web_server.start()
-                        time.sleep(0.1) # Fixes graphic issues
-                        CTCore.web_server_turned_on = True
-                elif s_cmd.lower() == "off":
-                    if CTCore.web_server_turned_on:
-                        CTCore.web_server.shutdown()
-                    else:
-                        print "     Web Server already off"
-                else:
-                    self.help_server()
-        except Exception,e:
-            print str(e)
-
-    def help_server(self):
-        print newLine + "Turn web server ON or OFF"
-        print newLine + "Usage: server <on / off>"
+        self.retval = newLine + "Finds iframes in html/js files"
+        self.retval += newLine + "Usage: iframes <obj_id>"
 
     def do_vt(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_vt()
@@ -486,7 +451,7 @@ class console(cmd.Cmd, object):
                 body, sz = CTCore.get_response_and_size(id, "all")
                 name = CTCore.get_name(id)
 
-                print " VirusTotal result for object {} ({}):".format(str(id),name) + newLine
+                self.retval = " VirusTotal result for object {} ({}):".format(str(id),name) + newLine
 
                 hash = hashlib.md5(StringIO.StringIO(body).getvalue()).hexdigest()
                 vtdata = CTCore.send_to_vt(hash, CTCore.VT_APIKEY)
@@ -496,37 +461,38 @@ class console(cmd.Cmd, object):
                         if jsonDict['response_code'] == 1:
                             if jsonDict.has_key('scans') and jsonDict.has_key('scan_date') \
                             and jsonDict.has_key('total') and jsonDict.has_key('positives') and jsonDict.has_key('permalink'):
-                                print " Detection: {}/{}".format(jsonDict['positives'], jsonDict['total'])
-                                print " Last Analysis Date: {}".format(jsonDict['scan_date'])
-                                print " Report Link: {}".format(jsonDict['permalink']) + newLine
+                                self.retval += " Detection: {}/{}".format(jsonDict['positives'], jsonDict['total'])
+                                self.retval += " Last Analysis Date: {}".format(jsonDict['scan_date'])
+                                self.retval += " Report Link: {}".format(jsonDict['permalink']) + newLine
                                 if jsonDict['positives'] > 0:
-                                    print " Scan Result:"
+                                    self.retval += " Scan Result:"
 
                                     for av in jsonDict['scans']:
                                         av_res = jsonDict['scans'][av]
                                         if av_res.has_key('detected') and av_res.has_key('version') and av_res.has_key('result') and av_res.has_key('update'):
                                             if av_res['detected']:
-                                                print "\t{}\t{}\t{}\t{}".format(av, av_res['result'], av_res['version'], av_res['update'])
+                                                self.retval += "\t{}\t{}\t{}\t{}".format(av, av_res['result'], av_res['version'], av_res['update'])
                             else:
-                                print " Missing elements in Virus Total Response"
+                                self.retval += " Missing elements in Virus Total Response"
                         else:
-                            print " File not found in VirusTotal"
+                            self.retval += " File not found in VirusTotal"
 
                     else:
-                        print " Response from VirusTotal isn't valid"
+                        self.retval += " Response from VirusTotal isn't valid"
                 else:
-                    print vtdata[1]
+                    self.retval += vtdata[1]
 
-                print ""
+                self.retval += newLine
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_vt(self):
-        print newLine + "Checks file's md5 hash in virus total"
-        print newLine + "Usage: vt <obj_id>"
+        self.retval = newLine + "Checks file's md5 hash in virus total"
+        self.retval += newLine + "Usage: vt <obj_id>"
 
     def do_hashes(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_hashes()
@@ -535,24 +501,25 @@ class console(cmd.Cmd, object):
                 body, sz = CTCore.get_response_and_size(id, "all")
                 name = CTCore.get_name(id)
 
-                print " Hashes of object {} ({}):".format(str(id),name) + newLine
+                self.retval = " Hashes of object {} ({}):".format(str(id),name) + newLine
 
                 for alg in hashlib.algorithms:
                     hashfunc = getattr(hashlib, alg)
                     hash = hashfunc(StringIO.StringIO(body).getvalue()).hexdigest()
-                    print " {0:8}  :   {1}".format(alg, hash)
+                    self.retval += " {0:8}  :   {1}".format(alg, hash)
 
-                print ""
+                self.retval += newLine
 
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_hashes(self):
-        print newLine + "Prints available hashes of object"
-        print newLine + "Usage: hashes <obj_id>"
+        self.retval = newLine + "Prints available hashes of object"
+        self.retval += newLine + "Usage: hashes <obj_id>"
 
     def do_peinfo(self, line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_peinfo()
@@ -561,70 +528,71 @@ class console(cmd.Cmd, object):
                 response, size = CTCore.get_response_and_size(id, "all")
                 name = CTCore.get_name(id)
 
-                print "Displaying PE info of object {} ({}) [{} bytes]:".format(id, name, size)
+                self.retval = "Displaying PE info of object {} ({}) [{} bytes]:".format(id, name, size)
                 if len(l) > 1 and l[1].lower() == "-p":
-                    print "Checking for packers..."
+                    self.retval += "Checking for packers..."
                     pescan = PEScanner(response, '', peid_sigs="userdb.txt")
                 else:
                     pescan = PEScanner(response, '', '')
 
                 out = pescan.collect()
-                print '\n'.join(out)
+                self.retval += '\n'.join(out)
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_peinfo(self):
-        print newLine + "Display PE info of the file"
-        print newLine + "Usage: peinfo <obj_id> [-p]" + newLine
-        print "OPTIONS:"
-        print "     -p     -   Check for packers"
+        self.retval = newLine + "Display PE info of the file"
+        self.retval += newLine + "Usage: peinfo <obj_id> [-p]" + newLine
+        self.retval += "OPTIONS:"
+        self.retval += "     -p     -   Check for packers"
 
     def do_find(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if len(l) < 2:
                 self.help_find()
             else:
                 pattern = " ".join(l[1:])
                 if l[0].lower() == "all":
-                    print "Searching '{}' in all objects:".format(pattern)
+                    self.retval = "Searching '{}' in all objects:".format(pattern)
                     for i in range(0,len(CTCore.objects)):
                         response, size = CTCore.get_response_and_size(i, "all")
                         name = CTCore.get_name(i)
 
                         search_res = find_pattern(response, pattern)
                         if len(search_res) > 0:
-                            print newLine + " {} [{}]:".format(name,str(i))
+                            self.retval += newLine + " {} [{}]:".format(name,str(i))
                             for res in search_res:
-                                print "   " + res
-                    print ""
+                                self.retval += "   " + res
+                    self.retval += newLine
                 else:
                     id, size = get_id_size(line)
                     response, size = CTCore.get_response_and_size(id, "all")
                     name = CTCore.get_name(id)
 
-
-                    print "Searching '{}' in object {} ({}):".format(pattern, id, name)
-                    print ""
+                    self.retval = "Searching '{}' in object {} ({}):".format(pattern, id, name)
+                    self.retval += newLine
 
                     search_res = find_pattern(response, pattern)
                     if len(search_res) > 0:
                         for res in search_res:
-                            print res
+                            self.retval += res
                     else:
-                        print "     No Results found"
-                    print ""
+                        self.retval += "     No Results found"
+                    self.retval += newLine
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_find(self):
-        print newLine + "Search for a regular expression in all or specific object"
-        print newLine + "Usage: find <obj_id / all> <pattern>" + newLine
-        print newLine + "Output data is displayed as follows:"
-        print newLine + "   ([Line number] , [Offset from begining of file]) : [Found string]" + newLine
+        self.retval = newLine + "Search for a regular expression in all or specific object"
+        self.retval += newLine + "Usage: find <obj_id / all> <pattern>" + newLine
+        self.retval += newLine + "Output data is displayed as follows:"
+        self.retval += newLine + "   ([Line number] , [Offset from begining of file]) : [Found string]" + newLine
 
     def do_slice(self,line):
         try:
+            line = str(line)
             l = line.split(" ")
             if len(l) < 3:
                 self.help_slice()
@@ -636,19 +604,20 @@ class console(cmd.Cmd, object):
                 length = l[2]
                 bytes, length = get_bytes(response,offset,length)
 
-                print "Displaying {} of bytes from offset {} in object {} ({}):".format(length, offset, id, name)
-                print ""
-                print bytes
-                print ""
+                self.retval = "Displaying {} of bytes from offset {} in object {} ({}):".format(length, offset, id, name)
+                self.retval += newLine
+                self.retval += bytes
+                self.retval += newLine
         except Exception,e:
-            print str(e)
+            self.retval += str(e)
 
     def help_slice(self):
-        print newLine + "Returns bytes from offset in given length"
-        print newLine + "Usage: slice <obj_id> <offset> <len | 'eob'>" + newLine
+        self.retval = newLine + "Returns bytes from offset in given length"
+        self.retval += newLine + "Usage: slice <obj_id> <offset> <len | 'eob'>" + newLine
 
     def do_req(self, line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_req()
@@ -656,18 +625,19 @@ class console(cmd.Cmd, object):
                 id, size = get_id_size(line)
                 request, size = CTCore.get_request_size(id, "all")
                 name = CTCore.get_name(id)
-                print "Displaying request for object {} ({}) [{} bytes]:".format(id, name, size)
+                self.retval += "Displaying request for object {} ({}) [{} bytes]:".format(id, name, size)
                 CTCore.show_errors()
-                print newLine + request
+                self.retval += newLine + request
         except Exception,e:
-            print str(e)
+            self.retval += str(e)
 
     def help_req(self):
-        print newLine + "Prints full request of object"
-        print newLine + "Usage: req <obj_id>"
+        self.retval = newLine + "Prints full request of object"
+        self.retval += newLine + "Usage: req <obj_id>"
 
     def do_jsbeautify(self,line):
         try:
+            line = str(line)
             import jsbeautifier
             l = line.split(" ")
             if len(l) < 2:
@@ -677,7 +647,7 @@ class console(cmd.Cmd, object):
                 option = l[0]
 
                 if option not in OPTIONS:
-                    print "Invalid option"
+                    self.retval = "Invalid option"
                     return False
 
                 id = l[1]
@@ -691,31 +661,26 @@ class console(cmd.Cmd, object):
                     bytes, length = get_bytes(response,offset,length)
                     js_bytes = bytes
                     res = jsbeautifier.beautify(js_bytes)
-                    print res
+                    self.retval = res
 
                 if option == "obj":
                     res = jsbeautifier.beautify(response)
                     obj_num = CTCore.add_object("jsbeautify",res,id=id)
-                    print " JavaScript Beautify of object {} ({}) successful!".format(str(id), name)
-                    print " New object created: {}".format(obj_num) + newLine
+                    self.retval = " JavaScript Beautify of object {} ({}) successful!".format(str(id), name)
+                    self.retval += " New object created: {}".format(obj_num) + newLine
 
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def help_jsbeautify(self):
-        print newLine + "Display JavaScript code after beautify"
-        print newLine + "Usage: jsbeautify <obj / slice> <object_id> <offset> <length>"
-        print newLine + "Example: jsbeautify slice <object_id> <offset> <len | eob>"
-        print newLine + "Example: jsbeautify obj <object_id>"
-
-    def do_update(self, line):
-        try:
-            CTCore.update_captipper()
-        except Exception, e:
-            print str(e)
+        self.retval = newLine + "Display JavaScript code after beautify"
+        self.retval += newLine + "Usage: jsbeautify <obj / slice> <object_id> <offset> <length>"
+        self.retval += newLine + "Example: jsbeautify slice <object_id> <offset> <len | eob>"
+        self.retval += newLine + "Example: jsbeautify obj <object_id>"
 
     def do_strings(self, line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_strings()
@@ -724,16 +689,16 @@ class console(cmd.Cmd, object):
                 response, size = CTCore.get_response_and_size(id, "all")
                 name = CTCore.get_name(id)
 
-                print "Strings found in object {} ({}) [{} bytes]:".format(id, name, size)
+                self.retval = "Strings found in object {} ({}) [{} bytes]:".format(id, name, size)
                 strings = CTCore.get_strings(response)
-                print (newLine.join(str for str in strings))
+                self.retval += (newLine.join(str for str in strings))
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
 
     def help_strings(self):
-        print newLine + "Display strings found in object"
-        print "usage: strings <obj_id>"
+        self.retval = newLine + "Display strings found in object"
+        self.retval += "usage: strings <obj_id>"
 
     # Short for plugin
     def do_p(self,line):
@@ -744,14 +709,15 @@ class console(cmd.Cmd, object):
 
     def do_plugin(self, line):
         try:
+            line = str(line)
             l = line.split(" ")
             if (l[0] == ""):
                 self.help_plugin()
             elif (l[0] == "-l"):
-                print "Loaded Plugins ({}):".format(len(CTCore.plugins))
+                self.retval = "Loaded Plugins ({}):".format(len(CTCore.plugins))
                 for plug in CTCore.plugins:
-                    print " {} : {} - {}".format(plug.id, plug.name, plug.description)
-                print ""
+                    self.retval += " {} : {} - {}".format(plug.id, plug.name, plug.description)
+                self.retval += newLine
             else:
                 if (l[0].isdigit() and int(l[0]) < len(CTCore.plugins)):
                     plugin_name = CTCore.plugins[int(l[0])].name
@@ -760,9 +726,9 @@ class console(cmd.Cmd, object):
                 plugin_args = l[1:]
                 result = CTCore.run_plugin(plugin_name, plugin_args)
                 if result is not None:
-                    print result
+                    self.retval = result
         except Exception,e:
-            print str(e)
+            self.retval = str(e)
 
     def complete_plugin(self, text, line, begidx, endidx):
         if not text:
@@ -775,117 +741,20 @@ class console(cmd.Cmd, object):
         return completions
 
     def help_plugin(self):
-        print "Launching an external plugin (alias: p)" + newLine
-        print "usage: plugin <plugin_name / plugin_id> [-l] <*args>"
-        print "     -l      - List all available plugins" + newLine
-        print "examples:"
-        print "     plugin find_scripts"
-        print "     plugin 1"
-        print "     p find_scripts"
-
-
-    def do_output(self, line):
-        try:
-            l = line.split(" ")
-            if (l[0] == ""):
-                self.help_output()
-            elif (l[0] == "stop"):
-                if CTCore.console_output:
-                    CTCore.console_output = False
-                    self.output_log.close()
-                    print "Stopped logging to {}".format(self.output_log.log_path)
-                else:
-                    print "Not logging"
-            else:
-                if CTCore.console_output:
-                    print "Already logging to {}".format(self.output_log.log_path)
-                    return
-                path = l[0]
-                self.output_log = output_logger()
-                open_res = self.output_log.start(path)
-                if open_res == True:
-                    print "Logging to {}".format(self.output_log.log_path)
-                    CTCore.console_output = True
-                else:
-                    print "Couldn't open logfile at {} : {}".format(path, open_res)
-        except Exception, e:
-            print str(e)
-
-    def help_output(self):
-        print newLine + "Logs all commands and results to a file"
-        print newLine + "usage: output <file>"
-        print            "      use 'stop' as the file argument to stop logging"
-
-    def help_update(self):
-        print newLine + "Update CapTipper to the newest version"
-        print "usage: update"
-
-    def do_clear(self, line):
-        os.system('cls' if os.name == 'nt' else 'clear')
-
-    def help_clear(self):
-        print newLine + "Clears the screen"
+        self.retval = "Launching an external plugin (alias: p)" + newLine
+        self.retval += "usage: plugin <plugin_name / plugin_id> [-l] <*args>"
+        self.retval += "     -l      - List all available plugins" + newLine
+        self.retval += "examples:"
+        self.retval += "     plugin find_scripts"
+        self.retval += "     plugin 1"
+        self.retval += "     p find_scripts"
 
     def do_about(self, line):
-        print CTCore.ABOUT
+        self.retval = CTCore.ABOUT
 
     def help_about(self):
-        print newLine + "Prints about information"
+        self.retval = newLine + "Prints about information"
 
     def help_exit(self):
-        print 'Exits from the console'
-        print 'Usage: exit'
-
-class output_logger:
-
-    def start(self, path):
-        try:
-            if os.path.exists(path):
-                pass
-            elif os.access(os.path.dirname(path), os.W_OK):
-                pass
-                #the file does not exists but write privileges are given
-            else:
-                return "Open Error"
-            self.log_path = path
-            self.stdout_saved = sys.stdout
-            self.logfile = open(path,"w") # check exception on that one.
-            sys.stdout = OutputSplitter(self.stdout_saved, self.logfile)
-        except Exception, e:
-            return str(e)
-
-        return True
-
-    def close(self):
-        sys.stdout = self.stdout_saved
-        self.logfile.close()
-
-    def write(self, data):
-        self.logfile.write(data + CTCore.newLine)
-
-class OutputSplitter(object):
-    def __init__(self, real_output, *open_files):
-        self.__stdout = real_output
-        self.__fds = open_files
-        self.encoding = real_output.encoding
-    def write(self, string):
-        self.__stdout.write(string)
-        self.__stdout.flush()
-        for fd in self.__fds:
-            try:
-                for color in CTCore.colors.__dict__.keys():
-                    col = getattr(CTCore.colors, color)
-                    try:
-                        if string.find(col) > -1:
-                            string = string.replace(col, "")
-                    except:
-                        pass
-                fd.write(string.encode('UTF-8'))
-                fd.flush()
-            except IOError:
-                pass
-            except:
-                pass
-    def flush(self):
-        pass
-
+        self.retval = 'Exits from the console'
+        self.retval +=  'Usage: exit'

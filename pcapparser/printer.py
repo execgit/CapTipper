@@ -1,4 +1,3 @@
-# Changes made to integrate with CapTipper in lines: 31-47,57-60,88-94,108-112, 129-135, 148-150,188-189
 # coding=utf-8
 from __future__ import unicode_literals, print_function, division
 
@@ -31,26 +30,33 @@ class HttpPrinter(object):
         self.remote_host = remote_host
         self.uri = ""
         self.req = ""
+        self.req_headerdict = dict()
+        self.req_head = ""
+        self.req_body = ""
         self.res_body = ""
         self.orig_resp = ""
         self.orig_chunked_resp = ""
+        self.res_headerdict = dict()
         self.res_head = ""
         self.res_num = ""
         self.res_type = ""
         self.redirect_to = ""
         self.host = ""
         self.referer = ""
+        self.user_agent = ""
         self.filename = ""
         self.method = ""
+        self.req_len = 0
         self.res_len = 0
         self.time = 0
 
 
-    def on_http_req(self, req_header, req_body):
+    def on_http_req(self, req_header, req_body, header_dict):
         """
         :type req_header: HttpRequestHeader
         :type req_body: bytes
         """
+        self.req_headerdict = header_dict
         if self.parse_config.level == OutputLevel.ONLY_URL:
             self._println(req_header.method + b" " + _get_full_url(req_header.uri, req_header.host))
         elif self.parse_config.level == OutputLevel.HEADER:
@@ -65,8 +71,10 @@ class HttpPrinter(object):
             else:
                 req_body = "\r\n\r\n" + req_body
             self.req = req_header.raw_data + req_body
+            self.req_head = req_header.raw_data
             self.host = req_header.host
             self.referer = req_header.referer
+            self.user_agent = req_header.user_agent
             self.method = req_header.method
             self.time = req_header.time
 
@@ -81,14 +89,18 @@ class HttpPrinter(object):
                 if utils.gzipped(req_body):
                     req_header.compress = Compress.GZIP
             if output_body:
+                self.req_body = req_body
+                if (self.req_body is not None) and (len(self.req_body) > 0) and (self.req_len == 0):
+                    self.req_len = len(self.req_body)
                 self._print_body(req_body, req_header.compress, mime, charset)
                 #self._println('')
 
-    def on_http_resp(self, resp_header, resp_body, orig_chunked_resp):
+    def on_http_resp(self, resp_header, resp_body, orig_chunked_resp, header_dict):
         """
         :type resp_header: HttpResponseHeader
         :type resp_body: bytes
         """
+        self.res_headerdict = header_dict
         if self.parse_config.level == OutputLevel.ONLY_URL:
             self._println(resp_header.status_line)
         elif self.parse_config.level == OutputLevel.HEADER:

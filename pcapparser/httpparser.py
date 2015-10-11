@@ -1,5 +1,3 @@
-# Changes made to integrate with CapTipper in lines: 176-177,198-191,223-227,236,261-262,329,341-346
-
 from __future__ import unicode_literals, print_function, division
 
 import threading
@@ -204,9 +202,12 @@ class HttpParser(object):
         req_header.referer = ""
         if b"referer" in header_dict:
             req_header.referer = header_dict[b'referer']
+        req_header.user_agent = ""
+        if b"user-agent" in header_dict:
+            req_header.user_agent = header_dict[b'user-agent']
 
         req_header.raw_data = b'\n'.join(lines)
-        return req_header
+        return req_header, header_dict
 
     def read_http_resp_header(self, reader):
         """read & parse http headers"""
@@ -243,7 +244,7 @@ class HttpParser(object):
             if cnt_dis.find("filename=") > -1:
                 resp_header.filename = cnt_dis.split('=')[1].rstrip()
 
-        return resp_header
+        return resp_header, header_dict
 
     def read_chunked_body(self, reader, skip=False):
         """ read chunked body """
@@ -305,7 +306,7 @@ class HttpParser(object):
             req_header = message.expect_header
             message.expect_header = None
         else:
-            req_header = self.read_http_req_header(reader)
+            req_header, header_dict = self.read_http_req_header(reader)
             req_header.time = m_time
             if req_header is None:
                 # read header error, we skip all data.
@@ -325,13 +326,13 @@ class HttpParser(object):
         show = _filter.by_domain(req_header.host) and _filter.by_uri(req_header.uri)
         message.filtered = not show
         if show:
-            self.processor.on_http_req(req_header, content)
+            self.processor.on_http_req(req_header, content, header_dict)
 
     def read_response(self, reader, message):
         """
         read and output one http response
         """
-        resp_header = self.read_http_resp_header(reader)
+        resp_header, header_dict = self.read_http_resp_header(reader)
         if resp_header is None:
             reader.skipall()
             return
@@ -362,4 +363,4 @@ class HttpParser(object):
             content, orig_chunked_resp = self.read_chunked_body(reader)
 
         if not message.filtered:
-            self.processor.on_http_resp(resp_header, content, orig_chunked_resp)
+            self.processor.on_http_resp(resp_header, content, orig_chunked_resp, header_dict)

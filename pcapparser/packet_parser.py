@@ -1,4 +1,3 @@
-# Changes made to integrate with CapTipper in lines: 18,30,101,115,120,123,126,131,172
 from __future__ import unicode_literals, print_function, division
 
 __author__ = 'dongliu'

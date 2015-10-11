@@ -40,16 +40,9 @@ ABOUT = "CapTipper v" + VERSION + " b" + BUILD + " - Malicious HTTP traffic expl
         "Copyright 2015 Omri Herscovici <omriher@gmail.com>" + newLine
 
 USAGE = ("CapTipper.py <pcap_file> [options]" + newLine + newLine +
-        "Examples: CapTipper.py ExploitKit.pcap           -     explore and start server on port 80" + newLine +
-        "          CapTipper.py ExploitKit.pcap -p 1234   -     explore and start server on port 1234" + newLine +
+        "Examples: CapTipper.py ExploitKit.pcap           -     explore" + newLine +
         "          CapTipper.py ExploitKit.pcap -d /tmp/  -     dumps all files and exit" + newLine +
-        "          CapTipper.py ExploitKit.pcap -r /tmp/  -     create json & html report and exit" + newLine +
-        "          CapTipper.py ExploitKit.pcap -s        -     explore without web server" + newLine)
-
-# WS configurations
-web_server_turned_on = False
-HOST = "0.0.0.0"
-PORT = 80
+        "          CapTipper.py ExploitKit.pcap -r /tmp/  -     create json & html report and exit" + newLine)
 
 console_output = False
 
@@ -157,24 +150,29 @@ def get_name(id):
         return name
 
 def show_hosts():
+    out = ''
     for host, ip in hosts.keys():
-        print " " + host + " ({})".format(ip)
+        sip = ''
+        for conv in conversations:
+            if conv.host == host:
+                sip = conv.server_ip_port
+                break
+        out += " " + host + " (%s)" % sip + newLine
         hostkey = (host, ip)
         for host_uri,obj_num in hosts[hostkey]:
-            #chr_num = 195 # Extended ASCII tree symbol
-            chr_num = 9500  # UNICODE tree symbol
+            chr_num = 43
 
             # Checks if last one
             if ((host_uri,obj_num) == hosts[hostkey][len(hosts[hostkey]) - 1]):
-                #chr_num = 192 # Extended ASCII tree symbol
-                chr_num = 9492 # UNICODE tree symbol
+                chr_num = 43
 
             try:
-                print " " + unichr(chr_num) + "-- " + host_uri.encode('utf8') + "   [{}]".format(obj_num)
+                out += " " + unichr(chr_num) + "-- " + host_uri.encode('utf8') + "   [{}]".format(obj_num)
             except:
-                print " |-- " + host_uri.encode('utf8') + "   [{}]".format(obj_num)
+                out += " |-- " + host_uri.encode('utf8') + "   [{}]".format(obj_num)
 
-        print newLine
+        out += newLine
+    return out
 
 def check_duplicate_url(host, uri):
     bDup = False
@@ -248,21 +246,26 @@ def finish_conversation(self):
 
         obj_num = len(conversations)
         conversations.append(namedtuple('Conv',
-            ['id','server_ip_port', 'uri','req','res_body','res_head','res_num','res_type','host','referer', \
-            'filename','method','redirect_to','req_microsec', 'res_len','magic_name', 'magic_ext']))
-
-
-
+            ['id', 'server_ip_port', 'uri', 'req', 'req_head', 'req_body', 
+             'req_len', 'res_body', 'res_head', 'res_num', 'res_type', 'host',
+             'referer', 'filename', 'method', 'redirect_to', 'req_microsec', 
+             'user_agent', 'res_len', 'magic_name', 'magic_ext',
+             'req_headerdict', 'res_headerdict']))
 
         # convs list
+        conversations[obj_num].client_ip = str(self.client_host[0]) + ":" + str(self.client_host[1])
         conversations[obj_num].id = obj_num
         conversations[obj_num].server_ip_port = str(self.remote_host[0]) + ":" + str(self.remote_host[1])
         conversations[obj_num].uri = self.uri
         conversations[obj_num].redirect_to = self.redirect_to
         conversations[obj_num].short_uri = getShortURI(self.uri)
         conversations[obj_num].req = self.req
+        conversations[obj_num].req_head = self.req_head
+        conversations[obj_num].req_headerdict = self.req_headerdict
+        conversations[obj_num].req_body = self.req_body
+        conversations[obj_num].req_len = self.req_len
         conversations[obj_num].res_body = self.res_body
-
+        conversations[obj_num].user_agent = self.user_agent
 
         try:
             # FindMagic
@@ -277,6 +280,7 @@ def finish_conversation(self):
 
         conversations[obj_num].orig_chunked_resp = self.orig_chunked_resp
         conversations[obj_num].orig_resp = self.orig_resp
+        conversations[obj_num].res_headerdict = self.res_headerdict
         conversations[obj_num].res_head = self.res_head
         conversations[obj_num].res_num = self.res_num
 
@@ -316,8 +320,14 @@ def show_conversations():
     if (b_use_short_uri):
         alert_message("Displaying shortened URI paths" + newLine, msg_type.INFO)
 
+    out = ''
+    prevhost = ''
     for cnt, conv in enumerate(conversations):
         try:
+            if prevhost != conv.host:
+                out += "%s%s (%s)%s" % (prevhost and '\n' or '', 
+                                        conv.host, conv.server_ip_port, newLine)
+                prevhost = conv.host
             typecolor = colors.END
             if ("pdf" in conv.res_type):
                 typecolor = colors.RED
@@ -328,33 +338,38 @@ def show_conversations():
             elif ("image" in conv.res_type):
                 typecolor = colors.GREEN
 
-            print str(conv.id) + ": " + colors.PINK,
+            out += str(conv.id) + ": " + colors.PINK
             if (b_use_short_uri):
-                print conv.short_uri,
+                out += conv.short_uri
             else:
-                print conv.uri,
-            print colors.END + " -> " + conv.res_type,
+                out += conv.uri
+            out += colors.END + " -> " + conv.res_type
             if (conv.filename != ""):
-                print typecolor + "(" + conv.filename.rstrip() + ")" + colors.END + " [" + str(fmt_size(conv.res_len)) + "]",
+                out += typecolor + "(" + conv.filename.rstrip() + ")" + \
+                       colors.END + " [" + str(fmt_size(conv.res_len)) + "]"
 
                 # If magic found
                 if conv.magic_ext != "":
-                    print " (Magic: " + colors.STRONG_BRIGHT + "{}".format(conv.magic_ext) + colors.NORMAL_BRIGHT + ")"
+                    out += " (Magic: " + colors.STRONG_BRIGHT + \
+                           "{}".format(conv.magic_ext) + \
+                           colors.NORMAL_BRIGHT + ")" + newLine
                 else:
-                    print ""
+                    out += newLine
             else:
-                print newLine
+                out += newLine
         except:
-            pass
-    print ""
+            raise
+    return out
 
 def show_objects():
-    print "Displaying Objects:" + newLine
-    print " ID   CID     TYPE          NAME"
-    print "---- -----  -----------   --------"
+    out = ''
+    out += "Displaying Objects:" + newLine
+    out += " ID   CID     TYPE          NAME"
+    out += "---- -----  -----------   --------"
 
     for id, obj in enumerate(objects):
-        print "{0:3} | {1:3} | {2:11} | {3}".format(id, obj.conv_id, obj.type, obj.name)
+        out += "{0:3} | {1:3} | {2:11} | {3}".format(id, obj.conv_id, obj.type, obj.name)
+    return out
 
 def hexdump(src, length=16):
     result = []
@@ -373,6 +388,7 @@ class srcHTMLParser(HTMLParser):
         HTMLParser.__init__(self)
         self.find_tag = find_tag
         self.tags = []
+        self.prevtag = ''
 
     def handle_starttag(self, tag, attrs):
         if tag == self.find_tag:
@@ -380,107 +396,11 @@ class srcHTMLParser(HTMLParser):
                 if att[0] == "src":
                     self.tags.append(att[1])
 
-    def print_objects(self):
-        if len(self.tags) > 0:
-            print " " + str(len(self.tags)) + " {}(s) Found!".format(self.find_tag) + newLine
+        self.prevtag = tag
 
-            for cnt, curr_tag in enumerate(self.tags):
-                print " [I] " + str(cnt + 1) + " : " + curr_tag
-        else:
-            print "     No {} Found".format(self.find_tag)
-
-def update_captipper():
-    currentVersion = "v{} b{}".format(VERSION,BUILD)
-    rawURL = "https://raw.githubusercontent.com/omriher/CapTipper/master/"
-    archiveURL = "https://github.com/omriher/CapTipper/archive/"
-    CoreFile = "CTCore.py"
-    CTArchive = "master.zip"
-
-    CoreURL = rawURL + CoreFile
-    print "Checking for updates (Current version: {})".format(currentVersion)
-    try:
-        print "Connecting to CapTipper Repository"
-        coreRepFile = urllib2.urlopen(CoreURL).read()
-    except:
-        sys.exit("[-] Error connecting to CapTipper repository")
-
-    verPattern = "VERSION = " + chr(34) + "(.*)" + chr(34) + "\s*?BUILD = " + chr(34) + "(.*)" + chr(34)
-    repoVer = re.findall(verPattern, coreRepFile)
-    if repoVer:
-        newVersion = "v{} b{}".format(repoVer[0][0],repoVer[0][1])
-    else:
-        sys.exit('[-] Error getting repository version')
-
-    if newVersion == currentVersion:
-         sys.exit("[+] You have the newest version!")
-    else:
-        print "[+] Updating CapTipper to {}".format(newVersion)
-        bPackSize = False
-        nAttempts = 0
-        while (not bPackSize and nAttempts < 3):
-            try:
-                url = archiveURL + CTArchive
-                u = urllib2.urlopen(url)
-                content_length = u.info().getheaders("content-length")
-                if len(content_length) > 0:
-                    file_size = int(content_length[0])
-                    bPackSize = True
-                else:
-                    print("[-] Couldn't get package size, Retrying ({} / 3)...".format(str(nAttempts)))
-            except Exception,e:
-                sys.exit("[-] Error downloading update: {}".format(e.message))
-            finally:
-                nAttempts += 1
-
-        if not bPackSize:
-            sys.exit("[-] Couldn't get package size, Please try again later...")
-
-        try:
-            package_name = "CapTipper-package.zip"
-            f = open(package_name, 'wb')
-            file_downloaded = 0
-            block_size = 8192
-            while True:
-                buffer = u.read(block_size)
-                if not buffer:
-                    break
-                file_downloaded += len(buffer)
-                f.write(buffer)
-                output = "[+] Downloading {0:.2f}%".format(file_downloaded * 100. / file_size)
-                sys.stdout.write('\r%s' % output)
-                sys.stdout.flush()
-            f.close()
-            CapTipper_Folder = os.path.dirname(os.path.realpath(__file__))
-        except Exception, e:
-            print "[-] Error downloading file: {}".format(e.message)
-
-        print "\nExtracting Files..."
-        try:
-            z = zipfile.ZipFile('CapTipper-package.zip')
-            master_folder = ""
-            for name in z.namelist():
-                if not master_folder:
-                    master_folder = name[:-1]
-                full_path = CapTipper_Folder + name.replace(master_folder,"")
-                # Case of directory
-                if full_path.endswith(r"/"):
-                    if not os.path.exists(full_path):
-                        os.makedirs(full_path)
-                else:
-                    if os.name == 'nt':
-                        full_path = full_path.replace("/",r"\\")
-
-                    print "Extracting {}".format(full_path)
-                    with open(full_path,"wb") as out:
-                        out.write(z.read(name))
-            try:
-                os.remove("CapTipper-package.zip")
-            except Exception, ed:
-                print "Failed deleting CapTipper-package.zip : " + ed.message
-            print "Update Complete! (New version: {})".format(newVersion)
-        except Exception,e:
-            sys.exit("Failed extracting files: {}".format(e.message))
-    sys.exit("Finished updating CapTipper")
+    def handle_data(self, data):
+        if self.prevtag == self.find_tag:
+            self.tags.append(data)
 
 def send_to_vt(md5, key_vt):
     if key_vt == "":
@@ -610,7 +530,7 @@ def dump_file(id, path):
     f = open(path, "wb")
     f.write(body)
     f.close()
-    print " Object {} written to {}".format(id, path)
+    return " Object {} written to {}".format(id, path)
 
 def find_plugin(name):
     for plug in plugins:
