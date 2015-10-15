@@ -21,6 +21,8 @@ import parse_pcap
 import gzip
 import urlparse
 import code
+import logging
+from cStringIO import StringIO
 
 import CTCore
 from CTConsole import console
@@ -92,8 +94,8 @@ if __name__ == "__main__":
 
     ## Console improvement stuff
 
-    import logging
-    logging.basicConfig(stream=sys.stdout, level=logging.WARN)
+    jsrun_logger = StringIO()
+    logging.basicConfig(stream=jsrun_logger, level=logging.WARN)
     try:
         from ThugAPI import *
         import PyV8
@@ -455,7 +457,11 @@ _help                Normal python help""" % (THUG)
         conversations_r[url] = r
 
     _jw = None
+    jsrun_out = ''
     def jsrun(aid, useragent=None, loglen=200):
+        global jsrun_logger, jsrun_out
+        jsrun_logger.seek(0)
+
         if not o(aid):
             print "Object {} has no content".format(aid)
             return
@@ -478,6 +484,8 @@ _help                Normal python help""" % (THUG)
                 = conversations[aid].user_agent
         t.run(w)
         _jw = w
+        jsrun_out = jsrun_logger.getvalue()
+        p(jsrun_out)
 
     def jseval(code):
         global _jw
