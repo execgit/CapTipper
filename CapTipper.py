@@ -99,7 +99,9 @@ if __name__ == "__main__":
     try:
         from ThugAPI import *
         import PyV8
-        THUG =  "jsrun(x)             run conversation x through JS evaluation\n"
+        THUG =  "jsrun(x, ua=x, l=y)  run conversation x through JS evaluation\n"
+        THUG += "                     with ua=user agent (default to ua in request) "
+        THUG += "and l=log length (0 = print all)\n"
         THUG += "                     retains window object and JS context\n"
         THUG += "jw(x)                handle the window object, eg jw('location')\n"
         THUG += "jseval(x )           evaluate x with PyV8 with new or existing context"
@@ -112,7 +114,7 @@ if __name__ == "__main__":
     c = console()
     _pager = lambda text: pipepager(text, 'less -R -X -F')
     def pager(text):
-        if text.splitlines() > 20:
+        if len(text.splitlines()) > 20:
             _pager(text)
         else:
             print text
@@ -174,9 +176,11 @@ if __name__ == "__main__":
             pass
     
     def pa_retval(func, line, *args):
+        c.retval = ''
         func(line, *args)
         pager(c.retval)
     def p_retval(func, line, *args):
+        c.retval = ''
         func(line, *args)
         print c.retval
 
@@ -186,10 +190,11 @@ if __name__ == "__main__":
     head = lambda x: p_retval(c.do_head, x)
     body = lambda x: p_retval(c.do_body, x)
     def res(x):
-        out = ''
+        c.retval = ''
         c.do_head(x)
-        out += c.retval
+        out = c.retval
         if o(x):
+            c.retval = ''
             c.do_body(x)
             out += newLine + c.retval
         print out
@@ -458,7 +463,7 @@ _help                Normal python help""" % (THUG)
 
     _jw = None
     jsrun_out = ''
-    def jsrun(aid, useragent=None, loglen=200):
+    def jsrun(aid, ua=None, l=200):
         global jsrun_logger, jsrun_out
         jsrun_logger.seek(0)
 
@@ -472,13 +477,13 @@ _help                Normal python help""" % (THUG)
         url = 'http://{}{}'.format(conversations[aid].host, 
                                    conversations[aid].uri)
         w = t.window_from_file(o(aid), url, offline_content=conversations_r,
-                               max_len=loglen)
+                               max_len=l)
         # Customise referer and user-agent, the latter is not
         # especially pretty but what can you do - we cannot have
         # personality files for everything we see
         t.set_referer(conversations[aid].referer)
-        if useragent:
-            w._navigator.personality['userAgent'] = useragent
+        if ua:
+            w._navigator.personality['userAgent'] = ua
         else:
             w._navigator.personality['userAgent'] \
                 = conversations[aid].user_agent

@@ -173,7 +173,7 @@ class console(object):
                 id, size = get_id_size(line)
                 response, size = CTCore.get_response_and_size(id, size)
                 name = CTCore.get_name(id)
-                self.reval = "Displaying body of object {} ({}) [{} bytes]:".format(id, name, size)
+                self.retval = "Displaying body of object {} ({}) [{} bytes]:".format(id, name, size)
                 CTCore.show_errors()
                 self.retval += newLine + response
         except Exception,e:
