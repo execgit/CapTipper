@@ -20,7 +20,6 @@ import CTCore
 from CTCore import hexdump
 from CTCore import colors
 from CTCore import msg_type
-from CTServer import server
 from pescanner import PEScanner
 
 newLine = os.linesep

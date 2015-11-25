@@ -153,11 +153,19 @@ if __name__ == "__main__":
                'nitoris': ['app_key=[a-f0-9]{32}'],
                }
 
+    def _clean_input(x):
+        if isinstance(x, unicode):
+            return x
+        try:
+            return unicode(x, 'latin-1')
+        except UnicodeDecodeError:
+            return unicode(x, 'utf-8')
+
     _o, objdata = list(), ''
     def make_objs():
         global _o, objdata, objects
         _o = [x.value for x in objects]
-        objdata = ''.join(x and x or '' for x in _o)
+        objdata = ''.join(x and _clean_input(x) or '' for x in _o)
     make_objs()
     def objs():
         global _o
@@ -453,7 +461,8 @@ _help                Normal python help""" % (THUG)
                                headers=reqhead)
         r = requests.Response()
         r.request = _r
-        r.status_code = int(conv.res_num.split()[0])
+        if conv.res_num:
+            r.status_code = int(conv.res_num.split()[0])
         r.header = conv.res_head
         # Might be wrong
         r.raw = conv.res_body
