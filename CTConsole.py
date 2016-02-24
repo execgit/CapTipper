@@ -108,6 +108,8 @@ def in_range(id, list_type='objects'):
 
 def check_path(path,type="file"):
     directory = os.path.dirname(path)
+    if not directory:
+        directory = os.getcwd()
     if type == "file" and os.path.isdir(path):
         CTCore.alert_message("Please specify a full path and not a folder",msg_type.ERROR)
         return False

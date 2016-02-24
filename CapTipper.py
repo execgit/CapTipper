@@ -329,7 +329,7 @@ head(x)              show conversation x response head
 body(x)              show conversation x response body
 info(x)              show conversation x infomation
 hexdump(x, "xorkey") show hexdump of conversation x response body, with optional xor
-dump("x filename")   dump conversation x response to filename
+dump("x filename")   dump conversation x response to filename (use all to dump all to a directory)
 ungz(x)              zlib decode conversation x response (makes new object from ungz)
 
 o(x)                 show raw object x from conversations
